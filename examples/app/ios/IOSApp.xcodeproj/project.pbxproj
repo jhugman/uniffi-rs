@@ -45,6 +45,7 @@
 		395A882F251A062D00562F33 /* IOSAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOSAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		395A8833251A062D00562F33 /* IOSAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSAppUITests.swift; sourceTree = "<group>"; };
 		395A8835251A062D00562F33 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		39C5D6D82524F95400BDBA8A /* IOSApp-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "IOSApp-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +76,7 @@
 		395A880A251A062C00562F33 = {
 			isa = PBXGroup;
 			children = (
+				39C5D6D82524F95400BDBA8A /* IOSApp-Bridging-Header.h */,
 				395A8815251A062C00562F33 /* IOSApp */,
 				395A8827251A062D00562F33 /* IOSAppTests */,
 				395A8832251A062D00562F33 /* IOSAppUITests */,
@@ -258,7 +260,6 @@
 /* Begin PBXShellScriptBuildPhase section */
 		39BF3FE42523A708005159C0 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -453,6 +454,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.example.uniffi.IOSApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "IOSApp-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -475,6 +477,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.example.uniffi.IOSApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "IOSApp-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

@@ -6,6 +6,6 @@
 #ifndef IOSApp_Bridging_Header_h
 #define IOSApp_Bridging_Header_h
 
-#import <TodoList.h>
+#import <TodoList/TodoList.h>
 
 #endif /* IOSApp_Bridging_Header_h */
