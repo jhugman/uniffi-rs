@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import SwiftUI
-import TodoList
 
 struct ContentView: View {
     @State private var clicked = 0
@@ -24,10 +23,17 @@ struct ContentView: View {
                     Text("-").padding()
                 }
                 Button("+") {
+                    testFunc()
                     clicked = clicked + 1
                 }.padding()
             }
         }
+    }
+
+    func testFunc() {
+        let bobo = TodoList()
+        try! bobo.addItem(todo: "test test")
+        print(try! bobo.getFirst())
     }
 }
 
