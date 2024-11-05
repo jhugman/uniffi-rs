@@ -9,9 +9,12 @@
 {% include "Interface.kt" %}
 {% include "CallbackInterfaceImpl.kt" %}
 
+{%- let trait_impl=format!("uniffiCallbackInterface{}", name) %}
 /**
  * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
  *
  * @suppress
  */
-public object {{ ffi_converter_name }}: FfiConverterCallbackInterface<{{ interface_name }}>()
+public object {{ ffi_converter_name }}: FfiConverterCallbackInterface<{{ interface_name }}>(
+  langIndex = {{ trait_impl }}.register(UniffiLib.INSTANCE)
+)

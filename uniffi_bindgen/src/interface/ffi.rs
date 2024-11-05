@@ -122,7 +122,7 @@ impl From<&Type> for FfiType {
             // Objects are pointers to an Arc<>
             Type::Object { name, .. } => FfiType::RustArcPtr(name.to_owned()),
             // Callback interfaces are passed as opaque integer handles.
-            Type::CallbackInterface { .. } => FfiType::UInt64,
+            Type::CallbackInterface { .. } => FfiType::RustBuffer(None),
             // Other types are serialized into a bytebuffer and deserialized on the other side.
             Type::Enum { .. }
             | Type::Record { .. }
@@ -221,7 +221,7 @@ impl FfiFunction {
                 name: "vtable".to_string(),
                 type_: FfiType::Struct(vtable_name).reference(),
             }],
-            return_type: None,
+            return_type: Some(FfiType::Int32),
             has_rust_call_status_arg: false,
             ..Self::default()
         }

@@ -131,7 +131,7 @@ pub(crate) fn ffi_converter(
         let trait_impl_ident = callback_interface::trait_impl_ident(&trait_name);
         quote! {
             fn try_lift(v: Self::FfiType) -> ::uniffi::deps::anyhow::Result<::std::sync::Arc<Self>> {
-                ::std::result::Result::Ok(::std::sync::Arc::new(<#trait_impl_ident>::new(v as u64)))
+                ::std::result::Result::Ok(::std::sync::Arc::new(<#trait_impl_ident>::new(v as u64, 0 as usize)))
             }
         }
     } else {

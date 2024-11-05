@@ -88,18 +88,19 @@ pub(super) fn trait_impl(
         static #vtable_cell: ::uniffi::UniffiForeignPointerCell::<#vtable_type> = ::uniffi::UniffiForeignPointerCell::<#vtable_type>::new();
 
         #[no_mangle]
-        extern "C" fn #init_ident(vtable: ::std::ptr::NonNull<#vtable_type>) {
-            #vtable_cell.set(vtable);
+        extern "C" fn #init_ident(vtable: ::std::ptr::NonNull<#vtable_type>) -> i32 {
+            #vtable_cell.set(vtable) as i32
         }
 
         #[derive(Debug)]
         struct #trait_impl_ident {
             handle: u64,
+            lang_index: usize,
         }
 
         impl #trait_impl_ident {
-            fn new(handle: u64) -> Self {
-                Self { handle }
+            fn new(handle: u64, lang_index: usize) -> Self {
+                Self { handle, lang_index }
             }
         }
 
@@ -112,7 +113,7 @@ pub(super) fn trait_impl(
 
         impl ::std::ops::Drop for #trait_impl_ident {
             fn drop(&mut self) {
-                let vtable = #vtable_cell.get();
+                let vtable = #vtable_cell.get(self.lang_index);
                 (vtable.uniffi_free)(self.handle);
             }
         }
@@ -141,22 +142,23 @@ pub fn ffi_converter_callback_interface_impl(
         Ok(p) => p,
         Err(e) => return e.into_compile_error(),
     };
-    let try_lift_self = ffiops::try_lift(quote! { Self });
-
+    let try_lift = ffiops::try_lift_from_rust_buffer(quote! { Self });
     quote! {
         #[doc(hidden)]
         #[automatically_derived]
         unsafe #lift_impl_spec {
-            type FfiType = u64;
-
-            fn try_lift(v: Self::FfiType) -> ::uniffi::deps::anyhow::Result<Self> {
-                ::std::result::Result::Ok(::std::boxed::Box::new(<#trait_impl_ident>::new(v)))
-            }
+            type FfiType = ::uniffi::rustbuffer::RustBuffer;
 
             fn try_read(buf: &mut &[u8]) -> ::uniffi::deps::anyhow::Result<Self> {
                 use ::uniffi::deps::bytes::Buf;
-                ::uniffi::check_remaining(buf, 8)?;
-                #try_lift_self(buf.get_u64())
+                ::uniffi::check_remaining(buf, 12)?;
+                let handle = buf.get_u64();
+                let lang_index = ::std::convert::TryFrom::try_from(buf.get_i32())?;
+                ::std::result::Result::Ok(::std::boxed::Box::new(<#trait_impl_ident>::new(handle, lang_index)))
+            }
+
+            fn try_lift(buf: Self::FfiType) -> ::uniffi::deps::anyhow::Result<Self> {
+                #try_lift(buf)
             }
         }
 
@@ -221,7 +223,7 @@ fn gen_method_impl(sig: &FnSignature, vtable_cell: &Ident) -> syn::Result<TokenS
     if !is_async {
         Ok(quote! {
             fn #ident(#self_param, #(#params),*) -> #return_ty {
-                let vtable = #vtable_cell.get();
+                let vtable = #vtable_cell.get(self.lang_index);
                 let mut uniffi_call_status: ::uniffi::RustCallStatus = ::std::default::Default::default();
                 let mut uniffi_return_value: #lift_return_type = ::uniffi::FfiDefault::ffi_default();
                 (vtable.#ident)(self.handle, #(#lower_exprs,)* &mut uniffi_return_value, &mut uniffi_call_status);
@@ -231,7 +233,7 @@ fn gen_method_impl(sig: &FnSignature, vtable_cell: &Ident) -> syn::Result<TokenS
     } else {
         Ok(quote! {
             async fn #ident(#self_param, #(#params),*) -> #return_ty {
-                let vtable = #vtable_cell.get();
+                let vtable = #vtable_cell.get(self.lang_index);
                 ::uniffi::foreign_async_call::<_, #return_ty, crate::UniFfiTag>(move |uniffi_future_callback, uniffi_future_callback_data| {
                     let mut uniffi_foreign_future: ::uniffi::ForeignFuture = ::uniffi::FfiDefault::ffi_default();
                     (vtable.#ident)(self.handle, #(#lower_exprs,)* uniffi_future_callback, uniffi_future_callback_data, &mut uniffi_foreign_future);

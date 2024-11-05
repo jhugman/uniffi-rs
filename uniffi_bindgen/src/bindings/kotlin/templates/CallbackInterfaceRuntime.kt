@@ -9,24 +9,26 @@ internal const val UNIFFI_CALLBACK_UNEXPECTED_ERROR = 2
 /**
  * @suppress
  */
-public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: FfiConverter<CallbackInterface, Long> {
+public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>(
+    internal val langIndex: Int
+): FfiConverterRustBuffer<CallbackInterface> {
     internal val handleMap = UniffiHandleMap<CallbackInterface>()
 
     internal fun drop(handle: Long) {
         handleMap.remove(handle)
     }
 
-    override fun lift(value: Long): CallbackInterface {
-        return handleMap.get(value)
+    override fun read(buf: ByteBuffer): CallbackInterface {
+        val handle = buf.getLong()
+        assert(buf.getInt() == this.langIndex) { "Callback interface has been called in the wrong language" }
+        return handleMap.get(handle)
     }
 
-    override fun read(buf: ByteBuffer) = lift(buf.getLong())
-
-    override fun lower(value: CallbackInterface) = handleMap.insert(value)
-
-    override fun allocationSize(value: CallbackInterface) = 8UL
+    override fun allocationSize(value: CallbackInterface) = 12UL
 
     override fun write(value: CallbackInterface, buf: ByteBuffer) {
-        buf.putLong(lower(value))
+        val handle = handleMap.insert(value)
+        buf.putLong(handle)
+        buf.putInt(langIndex)
     }
 }
