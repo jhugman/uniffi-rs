@@ -136,8 +136,11 @@ impl ScaffoldingBits {
         } else {
             quote! { ::std::sync::Arc<#self_ident> }
         };
-        let lift_type = ffiops::lift_type(&self_type);
-        let try_lift = ffiops::try_lift(&self_type);
+        let lift_type = if is_trait {
+            quote! { *const ::std::os::raw::c_void }
+        } else {
+            ffiops::lift_type(&self_type)
+        };
         let try_lift_self = if is_trait {
             // For trait interfaces we need to special case this.  Trait interfaces normally lift
             // foreign trait impl pointers.  However, for a method call, we want to lift a Rust
@@ -154,6 +157,7 @@ impl ScaffoldingBits {
                 }
             }
         } else {
+            let try_lift = ffiops::try_lift(&self_type);
             quote! { #try_lift(uniffi_self_lowered) }
         };
 

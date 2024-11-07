@@ -24,4 +24,6 @@ internal class UniffiHandleMap<T: Any> {
     fun remove(handle: Long): T {
         return map.remove(handle) ?: throw InternalException("UniffiHandleMap: Invalid handle")
     }
+
+    fun has(handle: Long): Boolean = map.contains(handle)
 }

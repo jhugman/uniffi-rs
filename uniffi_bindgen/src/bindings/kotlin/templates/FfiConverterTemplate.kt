@@ -35,20 +35,10 @@ public interface FfiConverter<KotlinType, FfiType> {
     // FfiType.  It's used by the callback interface code.  Callback interface
     // returns are always serialized into a `RustBuffer` regardless of their
     // normal FFI type.
-    fun lowerIntoRustBuffer(value: KotlinType): RustBuffer.ByValue {
-        val rbuf = RustBuffer.alloc(allocationSize(value))
-        try {
-            val bbuf = rbuf.data!!.getByteBuffer(0, rbuf.capacity).also {
-                it.order(ByteOrder.BIG_ENDIAN)
-            }
+    fun lowerIntoRustBuffer(value: KotlinType): RustBuffer.ByValue =
+        RustBuffer.write(allocationSize(value)) { bbuf ->
             write(value, bbuf)
-            rbuf.writeField("len", bbuf.position().toLong())
-            return rbuf
-        } catch (e: Throwable) {
-            RustBuffer.free(rbuf)
-            throw e
         }
-    }
 
     // Lift a value from a `RustBuffer`.
     //

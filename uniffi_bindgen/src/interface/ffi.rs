@@ -119,6 +119,7 @@ impl From<&Type> for FfiType {
             // Byte strings are also always owned rust values.
             // We might add a separate type for borrowed byte strings in future as well.
             Type::Bytes => FfiType::RustBuffer(None),
+            Type::Object { imp, .. } if imp.has_callback_interface() => FfiType::RustBuffer(None),
             // Objects are pointers to an Arc<>
             Type::Object { name, .. } => FfiType::RustArcPtr(name.to_owned()),
             // Callback interfaces are passed as opaque integer handles.
