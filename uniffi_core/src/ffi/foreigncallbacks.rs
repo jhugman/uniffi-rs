@@ -8,29 +8,38 @@
 //! code loads the exported library. For each callback type, we also define a "cell" type for
 //! storing the callback.
 
-use std::{
-    ptr::{null_mut, NonNull},
-    sync::atomic::{AtomicPtr, Ordering},
-};
+use std::{ptr::NonNull, sync::Mutex};
 
 // Cell type that stores any NonNull<T>
 #[doc(hidden)]
-pub struct UniffiForeignPointerCell<T>(AtomicPtr<T>);
+pub struct UniffiForeignPointerCell<T> {
+    pointers: Mutex<Vec<*mut T>>,
+}
 
 impl<T> UniffiForeignPointerCell<T> {
     pub const fn new() -> Self {
-        Self(AtomicPtr::new(null_mut()))
+        Self {
+            pointers: Mutex::new(Vec::new()),
+        }
     }
 
-    pub fn set(&self, callback: NonNull<T>) {
-        self.0.store(callback.as_ptr(), Ordering::Relaxed);
+    pub fn set(&self, callback: NonNull<T>) -> usize {
+        let mut pointers = self.pointers.lock().unwrap();
+        let index = pointers.len();
+        pointers.push(callback.as_ptr());
+        index
     }
 
-    pub fn get(&self) -> &T {
+    pub fn get(&self, index: usize) -> &T {
+        let pointers = self.pointers.lock().unwrap();
+        if index >= pointers.len() {
+            panic!("Foreign pointer used before being set. This is likely a uniffi bug.")
+        }
         unsafe {
-            NonNull::new(self.0.load(Ordering::Relaxed))
-                .expect("Foreign pointer not set.  This is likely a uniffi bug.")
-                .as_mut()
+            let ptr = pointers[index];
+            NonNull::new(ptr)
+                .expect("Foreign pointer not set. This is likely a uniffi bug.")
+                .as_ref()
         }
     }
 }

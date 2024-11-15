@@ -129,71 +129,105 @@ pub(crate) fn ffi_converter(
     let impl_spec = tagged_impl_header("FfiConverterArc", &quote! { dyn #trait_ident }, udl_mode);
     let lift_ref_impl_spec = tagged_impl_header("LiftRef", &quote! { dyn #trait_ident }, udl_mode);
     let trait_name = ident_to_string(trait_ident);
-    let try_lift = if with_foreign {
+
+    if with_foreign {
         let trait_impl_ident = callback_interface::trait_impl_ident(&trait_name);
+        let try_lift = ffiops::try_lift_from_rust_buffer(quote! { ::std::sync::Arc<Self> });
+        let lower = ffiops::lower_into_rust_buffer(quote! { ::std::sync::Arc<Self> });
         quote! {
-            fn try_lift(v: Self::FfiType) -> ::uniffi::deps::anyhow::Result<::std::sync::Arc<Self>> {
-                ::std::result::Result::Ok(::std::sync::Arc::new(<#trait_impl_ident>::new(v as u64)))
-            }
-        }
-    } else {
-        quote! {
-            fn try_lift(v: Self::FfiType) -> ::uniffi::deps::anyhow::Result<::std::sync::Arc<Self>> {
-                unsafe {
-                    ::std::result::Result::Ok(
-                        *::std::boxed::Box::from_raw(v as *mut ::std::sync::Arc<Self>),
-                    )
+            // All traits must be `Sync + Send`. The generated scaffolding will fail to compile
+            // if they are not, but unfortunately it fails with an unactionably obscure error message.
+            // By asserting the requirement explicitly, we help Rust produce a more scrutable error message
+            // and thus help the user debug why the requirement isn't being met.
+            ::uniffi::deps::static_assertions::assert_impl_all!(
+                dyn #trait_ident: ::core::marker::Sync, ::core::marker::Send
+            );
+
+            unsafe #impl_spec {
+                type FfiType = ::uniffi::rustbuffer::RustBuffer;
+
+                fn lower(obj: ::std::sync::Arc<Self>) -> Self::FfiType {
+                    #lower(obj)
                 }
+
+                fn try_lift(v: Self::FfiType) -> ::uniffi::deps::anyhow::Result<::std::sync::Arc<Self>> {
+                    #try_lift(v)
+                }
+
+                fn write(obj: ::std::sync::Arc<Self>, buf: &mut ::std::vec::Vec<u8>) {
+                    ::uniffi::deps::static_assertions::const_assert!(::std::mem::size_of::<*const ::std::ffi::c_void>() <= 8);
+                    let handle = ::std::boxed::Box::into_raw(::std::boxed::Box::new(obj)) as *const ::std::os::raw::c_void;
+                    let lang_index = -1; // no value
+                    ::uniffi::deps::bytes::BufMut::put_u64(buf, handle as ::std::primitive::u64);
+                    ::uniffi::deps::bytes::BufMut::put_i32(buf, lang_index);
+                }
+
+                fn try_read(buf: &mut &[u8]) -> ::uniffi::Result<::std::sync::Arc<Self>> {
+                    use ::uniffi::deps::bytes::Buf;
+                    ::uniffi::check_remaining(buf, 12)?;
+                    let handle = buf.get_u64();
+                    let lang_index = buf.get_i32() as ::std::primitive::usize;
+                    ::std::result::Result::Ok(::std::sync::Arc::new(<#trait_impl_ident>::new(handle, lang_index)))
+                }
+
+                const TYPE_ID_META: ::uniffi::MetadataBuffer = ::uniffi::MetadataBuffer::from_code(::uniffi::metadata::codes::TYPE_CALLBACK_TRAIT_INTERFACE)
+                    .concat_str(#mod_path)
+                    .concat_str(#trait_name);
+            }
+
+            unsafe #lift_ref_impl_spec {
+                type LiftType = ::std::sync::Arc<dyn #trait_ident>;
             }
         }
-    };
-    let metadata_code = if with_foreign {
-        quote! { ::uniffi::metadata::codes::TYPE_CALLBACK_TRAIT_INTERFACE }
     } else {
-        quote! { ::uniffi::metadata::codes::TYPE_TRAIT_INTERFACE }
-    };
-    let lower_self = ffiops::lower(quote! { ::std::sync::Arc<Self> });
-    let try_lift_self = ffiops::try_lift(quote! { ::std::sync::Arc<Self> });
+        let lower_self = ffiops::lower(quote! { ::std::sync::Arc<Self> });
+        let try_lift_self = ffiops::try_lift(quote! { ::std::sync::Arc<Self> });
+        quote! {
+            // All traits must be `Sync + Send`. The generated scaffolding will fail to compile
+            // if they are not, but unfortunately it fails with an unactionably obscure error message.
+            // By asserting the requirement explicitly, we help Rust produce a more scrutable error message
+            // and thus help the user debug why the requirement isn't being met.
+            ::uniffi::deps::static_assertions::assert_impl_all!(
+                dyn #trait_ident: ::core::marker::Sync, ::core::marker::Send
+            );
 
-    quote! {
-        // All traits must be `Sync + Send`. The generated scaffolding will fail to compile
-        // if they are not, but unfortunately it fails with an unactionably obscure error message.
-        // By asserting the requirement explicitly, we help Rust produce a more scrutable error message
-        // and thus help the user debug why the requirement isn't being met.
-        ::uniffi::deps::static_assertions::assert_impl_all!(
-            dyn #trait_ident: ::core::marker::Sync, ::core::marker::Send
-        );
+            unsafe #impl_spec {
+                type FfiType = *const ::std::os::raw::c_void;
 
-        unsafe #impl_spec {
-            type FfiType = *const ::std::os::raw::c_void;
+                fn lower(obj: ::std::sync::Arc<Self>) -> Self::FfiType {
+                    ::std::boxed::Box::into_raw(::std::boxed::Box::new(obj)) as *const ::std::os::raw::c_void
+                }
 
-            fn lower(obj: ::std::sync::Arc<Self>) -> Self::FfiType {
-                ::std::boxed::Box::into_raw(::std::boxed::Box::new(obj)) as *const ::std::os::raw::c_void
+                fn try_lift(v: Self::FfiType) -> ::uniffi::deps::anyhow::Result<::std::sync::Arc<Self>> {
+                    unsafe {
+                        ::std::result::Result::Ok(
+                            *::std::boxed::Box::from_raw(v as *mut ::std::sync::Arc<Self>),
+                        )
+                    }
+                }
+
+                fn write(obj: ::std::sync::Arc<Self>, buf: &mut ::std::vec::Vec<u8>) {
+                    ::uniffi::deps::static_assertions::const_assert!(::std::mem::size_of::<*const ::std::ffi::c_void>() <= 8);
+                    ::uniffi::deps::bytes::BufMut::put_u64(
+                        buf,
+                        #lower_self(obj) as ::std::primitive::u64,
+                    );
+                }
+
+                fn try_read(buf: &mut &[u8]) -> ::uniffi::Result<::std::sync::Arc<Self>> {
+                    ::uniffi::deps::static_assertions::const_assert!(::std::mem::size_of::<*const ::std::ffi::c_void>() <= 8);
+                    ::uniffi::check_remaining(buf, 8)?;
+                    #try_lift_self(::uniffi::deps::bytes::Buf::get_u64(buf) as Self::FfiType)
+                }
+
+                const TYPE_ID_META: ::uniffi::MetadataBuffer = ::uniffi::MetadataBuffer::from_code(::uniffi::metadata::codes::TYPE_TRAIT_INTERFACE)
+                    .concat_str(#mod_path)
+                    .concat_str(#trait_name);
             }
 
-            #try_lift
-
-            fn write(obj: ::std::sync::Arc<Self>, buf: &mut ::std::vec::Vec<u8>) {
-                ::uniffi::deps::static_assertions::const_assert!(::std::mem::size_of::<*const ::std::ffi::c_void>() <= 8);
-                ::uniffi::deps::bytes::BufMut::put_u64(
-                    buf,
-                    #lower_self(obj) as ::std::primitive::u64,
-                );
+            unsafe #lift_ref_impl_spec {
+                type LiftType = ::std::sync::Arc<dyn #trait_ident>;
             }
-
-            fn try_read(buf: &mut &[u8]) -> ::uniffi::Result<::std::sync::Arc<Self>> {
-                ::uniffi::deps::static_assertions::const_assert!(::std::mem::size_of::<*const ::std::ffi::c_void>() <= 8);
-                ::uniffi::check_remaining(buf, 8)?;
-                #try_lift_self(::uniffi::deps::bytes::Buf::get_u64(buf) as Self::FfiType)
-            }
-
-            const TYPE_ID_META: ::uniffi::MetadataBuffer = ::uniffi::MetadataBuffer::from_code(#metadata_code)
-                .concat_str(#mod_path)
-                .concat_str(#trait_name);
-        }
-
-        unsafe #lift_ref_impl_spec {
-            type LiftType = ::std::sync::Arc<dyn #trait_ident>;
         }
     }
 }

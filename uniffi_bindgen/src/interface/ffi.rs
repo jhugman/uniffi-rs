@@ -125,10 +125,11 @@ impl From<&Type> for FfiType {
             // Byte strings are also always owned rust values.
             // We might add a separate type for borrowed byte strings in future as well.
             Type::Bytes => FfiType::RustBuffer(None),
+            Type::Object { imp, .. } if imp.has_callback_interface() => FfiType::RustBuffer(None),
             // Objects are pointers to an Arc<>
             Type::Object { name, .. } => FfiType::RustArcPtr(name.to_owned()),
             // Callback interfaces are passed as opaque integer handles.
-            Type::CallbackInterface { .. } => FfiType::UInt64,
+            Type::CallbackInterface { .. } => FfiType::RustBuffer(None),
             // Other types are serialized into a bytebuffer and deserialized on the other side.
             Type::Enum { .. }
             | Type::Record { .. }
@@ -227,7 +228,7 @@ impl FfiFunction {
                 name: "vtable".to_string(),
                 type_: FfiType::Struct(vtable_name).reference(),
             }],
-            return_type: None,
+            return_type: Some(FfiType::Int32),
             has_rust_call_status_arg: false,
             ..Self::default()
         }

@@ -126,6 +126,14 @@ open class {{ impl_class_name }}: Disposable, AutoCloseable, {{ interface_name }
         this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(pointer))
     }
 
+    constructor(rbuf: RustBuffer) : this(
+        rbuf.asByteBuffer()!!.let { buf ->
+            val pointer = buf.getLong()
+            buf.getInt()
+            Pointer(pointer)
+        }
+    )
+
     /**
      * This constructor can be used to instantiate a fake object. Only used for tests. Any
      * attempt to actually use an object constructed this way will fail as there is no
@@ -171,7 +179,11 @@ open class {{ impl_class_name }}: Disposable, AutoCloseable, {{ interface_name }
         this.destroy()
     }
 
+    {% if obj.has_callback_interface() -%}
+    internal inline fun <R> callWithPointer(block: (ptr: RustBuffer.ByValue) -> R): R {
+    {%- else %}
     internal inline fun <R> callWithPointer(block: (ptr: Pointer) -> R): R {
+    {%- endif %}
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
         do {
@@ -185,7 +197,11 @@ open class {{ impl_class_name }}: Disposable, AutoCloseable, {{ interface_name }
         } while (! this.callCounter.compareAndSet(c, c + 1L))
         // Now we can safely do the method call without the pointer being freed concurrently.
         try {
+            {% if obj.has_callback_interface() -%}
+            return block({{ ffi_converter_name }}.lowerPointer(this.uniffiClonePointer()))
+            {%- else %}
             return block(this.uniffiClonePointer())
+            {%- endif %}
         } finally {
             // This decrement always matches the increment we performed above.
             if (this.callCounter.decrementAndGet() == 0L) {
@@ -267,20 +283,52 @@ open class {{ impl_class_name }}: Disposable, AutoCloseable, {{ interface_name }
 {% include "CallbackInterfaceImpl.kt" %}
 {%- endif %}
 
+{%- let trait_impl=format!("uniffiCallbackInterface{}", name) %}
+
+{%- if obj.has_callback_interface() %}
+/**
+ * @suppress
+ */
+public object {{ ffi_converter_name }}: FfiConverterRustBuffer<{{ type_name }}> {
+    internal val handleMap = UniffiHandleMap<{{ type_name }}>()
+    internal val langIndex: Int = {{ trait_impl }}.register(UniffiLib.INSTANCE)
+
+    override fun read(buf: ByteBuffer): {{ type_name }} {
+        // The Rust code always writes pointers as 8 bytes, and will
+        // fail to compile if they don't fit.
+        val handle = buf.getLong()
+        val langIndex = buf.getInt()
+        if (handleMap.has(handle)) {
+            return handleMap.get(handle)
+        } else {
+            return {{ impl_class_name }}(Pointer(handle))
+        }
+    }
+
+    override fun allocationSize(value: {{ type_name }}) = 12UL
+
+    fun lowerPointer(pointer: Pointer): RustBuffer.ByValue =
+        RustBuffer.write(12UL) { bbuf ->
+            bbuf.putLong(Pointer.nativeValue(pointer))
+            bbuf.putInt(langIndex)
+        }
+
+    override fun write(value: {{ type_name }}, buf: ByteBuffer) {
+        // The Rust code always expects pointers written as 8 bytes,
+        // and will fail to compile if they don't fit.
+        val handle = handleMap.insert(value)
+        buf.putLong(handle)
+        buf.putInt(this.langIndex)
+    }
+}
+
+{%- else %}
 /**
  * @suppress
  */
 public object {{ ffi_converter_name }}: FfiConverter<{{ type_name }}, Pointer> {
-    {%- if obj.has_callback_interface() %}
-    internal val handleMap = UniffiHandleMap<{{ type_name }}>()
-    {%- endif %}
-
     override fun lower(value: {{ type_name }}): Pointer {
-        {%- if obj.has_callback_interface() %}
-        return Pointer(handleMap.insert(value))
-        {%- else %}
         return value.uniffiClonePointer()
-        {%- endif %}
     }
 
     override fun lift(value: Pointer): {{ type_name }} {
@@ -301,3 +349,5 @@ public object {{ ffi_converter_name }}: FfiConverter<{{ type_name }}, Pointer> {
         buf.putLong(Pointer.nativeValue(lower(value)))
     }
 }
+
+{%- endif %}

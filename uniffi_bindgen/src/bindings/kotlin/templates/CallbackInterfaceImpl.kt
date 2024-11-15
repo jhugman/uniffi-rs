@@ -106,7 +106,6 @@ internal object {{ trait_impl }} {
 
     // Registers the foreign callback with the Rust side.
     // This method is generated for each callback interface.
-    internal fun register(lib: UniffiLib) {
+    internal fun register(lib: UniffiLib): Int =
         lib.{{ ffi_init_callback.name() }}(vtable)
-    }
 }

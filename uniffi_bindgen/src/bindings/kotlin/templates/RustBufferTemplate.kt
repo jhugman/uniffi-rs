@@ -43,6 +43,21 @@ open class RustBuffer : Structure() {
         internal fun free(buf: RustBuffer.ByValue) = uniffiRustCall() { status ->
             UniffiLib.INSTANCE.{{ ci.ffi_rustbuffer_free().name() }}(buf, status)
         }
+
+        fun write(size: ULong, writer: (ByteBuffer) -> Unit): RustBuffer.ByValue {
+            val rbuf = RustBuffer.alloc(size)
+            try {
+                val bbuf = rbuf.data!!.getByteBuffer(0, rbuf.capacity).also {
+                    it.order(ByteOrder.BIG_ENDIAN)
+                }
+                writer(bbuf)
+                rbuf.writeField("len", bbuf.position().toLong())
+                return rbuf
+            } catch (e: Throwable) {
+                RustBuffer.free(rbuf)
+                throw e
+            }
+        }
     }
 
     @Suppress("TooGenericExceptionThrown")

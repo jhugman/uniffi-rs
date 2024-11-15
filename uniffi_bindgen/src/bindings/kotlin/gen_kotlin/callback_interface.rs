@@ -24,8 +24,4 @@ impl CodeType for CallbackInterfaceCodeType {
     fn canonical_name(&self) -> String {
         format!("Type{}", self.id)
     }
-
-    fn initialization_fn(&self) -> Option<String> {
-        Some(format!("uniffiCallbackInterface{}.register", self.id))
-    }
 }
