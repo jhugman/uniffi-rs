@@ -48,7 +48,7 @@ pub trait FutureLowerReturn<UT>: LowerReturn<UT> {}
 /// `rust_future_*` methods from different threads.
 #[cfg(not(target_arch = "wasm32"))]
 impl<T, F> UniffiCompatibleFuture<T> for F where F: Future<Output = T> + Send {}
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm-unstable-single-threaded")))]
 impl<UT, LR> FutureLowerReturn<UT> for LR where LR: LowerReturn<UT> + Send {}
 
 /// `Future`'s on WASM32 are not `Send` because it's a single threaded environment.
@@ -90,7 +90,7 @@ impl<UT, LR> FutureLowerReturn<UT> for LR where LR: LowerReturn<UT> + Send {}
 /// [transferable]: (https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Transferable_objects
 #[cfg(target_arch = "wasm32")]
 impl<T, F> UniffiCompatibleFuture<T> for F where F: Future<Output = T> {}
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "wasm-unstable-single-threaded"))]
 impl<UT, LR> FutureLowerReturn<UT> for LR where LR: LowerReturn<UT> {}
 
 // === Public FFI API ===

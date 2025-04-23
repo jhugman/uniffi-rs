@@ -151,7 +151,7 @@ pub unsafe trait FfiConverter<UT>: Sized {
 /// or might not match with the corresponding code in the generated foreign-language bindings.
 /// These traits should not be used directly, only in generated code, and the generated code should
 /// have fixture tests to test that everything works correctly together.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(all(target_arch = "wasm32", feature = "wasm-unstable-single-threaded")))]
 pub unsafe trait FfiConverterArc<UT>: Send + Sync {
     type FfiType: FfiDefault;
 
@@ -163,7 +163,12 @@ pub unsafe trait FfiConverterArc<UT>: Send + Sync {
     const TYPE_ID_META: MetadataBuffer;
 }
 
-#[cfg(target_arch = "wasm32")]
+/// ## Safety
+///
+/// The Safety notice is the same as for `FfiConverterArc`, but this is only used
+/// for WASM targets that are single-threaded. In this case, Send and Sync aren't
+/// necessary to check.
+#[cfg(all(target_arch = "wasm32", feature = "wasm-unstable-single-threaded"))]
 pub unsafe trait FfiConverterArc<UT> {
     type FfiType: FfiDefault;
 
