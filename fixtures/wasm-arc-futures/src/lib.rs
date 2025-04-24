@@ -6,6 +6,7 @@
 
 mod timer;
 
+use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
@@ -40,6 +41,18 @@ type EventHandlerFn = dyn Fn(String, String) -> EventHandlerFut;
 pub struct SimpleObject {
     inner: Mutex<String>,
     callbacks: Vec<Box<EventHandlerFn>>,
+}
+
+impl fmt::Debug for SimpleObject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "SimpleObject")
+    }
+}
+
+impl fmt::Display for SimpleObject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl SimpleObject {
@@ -78,6 +91,27 @@ fn from_static() -> Box<EventHandlerFn> {
 #[uniffi::export]
 async fn make_object() -> Arc<SimpleObject> {
     SimpleObject::new_with_callback(from_static())
+}
+
+#[uniffi::export]
+async fn throw_object() -> Result<(), Arc<SimpleObject>> {
+    let obj = make_object().await;
+    Err(obj)
+}
+
+#[derive(uniffi::Object, Debug)]
+pub struct ErrorObject;
+
+impl fmt::Display for ErrorObject {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "ErrorObject")
+    }
+}
+
+#[uniffi::export]
+async fn throw_error_object() -> Result<(), Arc<ErrorObject>> {
+    let obj = Arc::new(ErrorObject);
+    Err(obj)
 }
 
 uniffi::setup_scaffolding!();
